@@ -1,0 +1,897 @@
+{
+  "name": "GitHub Repo Metrics to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $node.Configuration.json.spreadsheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $node.Configuration.json.sheet_name }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "repo_name": "Repository Name",
+            "full_name": "Full Name",
+            "owner": "Owner",
+            "description": "Description",
+            "url": "URL",
+            "stars": "Stars",
+            "forks": "Forks",
+            "open_issues": "Open Issues",
+            "watchers": "Watchers",
+            "language": "Language",
+            "created_at": "Created At",
+            "updated_at": "Updated At",
+            "pushed_at": "Last Push",
+            "size": "Size (KB)",
+            "default_branch": "Default Branch",
+            "topics": "Topics",
+            "license": "License",
+            "is_private": "Private",
+            "is_archived": "Archived",
+            "has_issues": "Has Issues",
+            "has_wiki": "Has Wiki",
+            "has_pages": "Has Pages",
+            "total_lines_of_code": "Total Lines",
+            "total_non_empty_lines": "Non-Empty Lines",
+            "total_characters": "Total Characters",
+            "total_code_files": "Code Files",
+            "analyzed_files": "Files Analyzed",
+            "avg_lines_per_file": "Avg Lines/File",
+            "avg_chars_per_file": "Avg Chars/File",
+            "primary_language": "Primary Language",
+            "processed_at": "Processed At"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "2f05af89-b87f-4221-abfb-ae4f2b90d5d4",
+      "name": "Add Headers (First Run)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -1360,
+        240
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $node.Configuration.json.spreadsheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $node.Configuration.json.sheet_name }}",
+          "mode": "name"
+        }
+      },
+      "id": "1c048761-03db-472b-a3c5-a611aa33a790",
+      "name": "Clear Sheet (First Run)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -1560,
+        240
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node to merge configuration\n// This handles both first run (from Configuration) and loop runs (from Wait)\n\nconst originalConfig = $node.Configuration.json;\nconst currentInput = $json;\n\nconsole.log('Current input:', JSON.stringify(currentInput, null, 2));\nconsole.log('Original config:', JSON.stringify(originalConfig, null, 2));\n\n// Determine if this is first run or loop run\nconst isFirstRun = !currentInput.should_continue && !currentInput.processed_page;\n\nlet config;\nif (isFirstRun) {\n  config = originalConfig;\n  console.log('First run detected - using original config');\n} else {\n  config = {\n    programming_language: currentInput.programming_language || originalConfig.programming_language,\n    sort_by: currentInput.sort_by || originalConfig.sort_by,\n    spreadsheet_id: currentInput.spreadsheet_id || originalConfig.spreadsheet_id,\n    sheet_name: currentInput.sheet_name || originalConfig.sheet_name,\n    results_per_page: currentInput.results_per_page || originalConfig.results_per_page,\n    max_pages: currentInput.max_pages || originalConfig.max_pages,\n    current_page: currentInput.current_page || originalConfig.current_page,\n    include_code_metrics: currentInput.include_code_metrics !== undefined ? currentInput.include_code_metrics : originalConfig.include_code_metrics,\n    max_file_size_kb: currentInput.max_file_size_kb || originalConfig.max_file_size_kb\n  };\n  console.log('Loop run detected - using updated config');\n}\n\nconsole.log(`Final config - Page: ${config.current_page}`);\n\nreturn [{ json: config }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        40
+      ],
+      "id": "81c379bf-dc4c-4fb7-bbf5-159d4db453ae",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Summary of processing\nconst processedPage = $json.processed_page;\nconst totalResults = $json.total_results;\nconst totalPages = $json.total_pages;\n\nreturn [{\n  json: {\n    status: 'completed',\n    message: `Successfully processed ${processedPage} page(s) of GitHub repositories`,\n    total_results_found: totalResults,\n    total_pages_available: totalPages,\n    pages_processed: processedPage,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "84c50417-5c7c-486a-850d-8729de7d28c0",
+      "name": "Processing Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "unit": "seconds"
+      },
+      "id": "04358d98-8ac5-4e5b-848d-051b136bb947",
+      "name": "Wait (Rate Limit)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        -60
+      ],
+      "webhookId": "b314ba13-5f1a-42d5-b215-259ff3275ca2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.should_continue }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "40b93ee4-0957-41e9-80fa-f52634cedf19",
+      "name": "Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1880,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Corrected Check Pagination Logic\nconst searchResults = $node['Search GitHub Repos'].json;\nconst originalConfig = $node.Configuration.json;\n\n// The current page that was just processed\nconst currentPageJustProcessed = $node.Code.json.current_page;\n\nconsole.log('Page that was just processed:', currentPageJustProcessed);\nconsole.log('Search results total:', searchResults.total_count);\n\nconst totalResults = searchResults.total_count;\nconst resultsPerPage = originalConfig.results_per_page;\nconst maxPages = originalConfig.max_pages;\n\nconst totalPages = Math.ceil(totalResults / resultsPerPage);\nconst nextPage = currentPageJustProcessed + 1;\nconst shouldContinue = nextPage <= totalPages && nextPage <= maxPages;\n\nconsole.log(`Just processed page: ${currentPageJustProcessed}`);\nconsole.log(`Next page would be: ${nextPage}`);\nconsole.log(`Total pages: ${totalPages}`);\nconsole.log(`Should continue: ${shouldContinue}`);\n\nreturn [{\n  json: {\n    should_continue: shouldContinue,\n    total_results: totalResults,\n    total_pages: totalPages,\n    processed_page: currentPageJustProcessed,\n    // Pass the complete config with updated page for NEXT iteration\n    programming_language: originalConfig.programming_language,\n    sort_by: originalConfig.sort_by,\n    spreadsheet_id: originalConfig.spreadsheet_id,\n    sheet_name: originalConfig.sheet_name,\n    results_per_page: originalConfig.results_per_page,\n    max_pages: originalConfig.max_pages,\n    current_page: nextPage,\n    include_code_metrics: originalConfig.include_code_metrics,\n    max_file_size_kb: originalConfig.max_file_size_kb\n  }\n}];"
+      },
+      "id": "59a7a0f5-73f6-4a67-ad87-2e261c2db680",
+      "name": "Check Pagination",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $node.Configuration.json.spreadsheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $node.Configuration.json.sheet_name }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED",
+          "useAppend": true
+        }
+      },
+      "id": "fc1739db-ceae-46b8-a658-cff89fac105a",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1480,
+        40
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "khe54JscOuMOl2wR",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\n\nfor (const item of $input.all()) {\n  const data = item.json;\n  const repo = data.repo || data;\n  const metrics = data.code_metrics || {};\n  \n  // Debug logging to see what data we have\n  console.log('Processing repo:', repo.full_name);\n  console.log('actual_issues_count:', repo.actual_issues_count);\n  console.log('actual_prs_count:', repo.actual_prs_count);\n  console.log('original open_issues_count:', repo.open_issues_count);\n  \n  items.push({\n    json: {\n      repo_name: repo.name,\n      full_name: repo.full_name,\n      owner: repo.owner.login,\n      description: repo.description || '',\n      url: repo.html_url,\n      stars: repo.stargazers_count,\n      forks: repo.forks_count,\n      // Use the corrected counts from Code1 node\n      open_issues: metrics.actual_issues_count || 0,\n      open_pull_requests:  metrics.actual_prs_count || 0,\n      // Also include the original combined count for reference\n      original_combined_open_count: repo.open_issues_count,\n      watchers: repo.subscribers_count !== undefined ? repo.subscribers_count : repo.watchers_count,\n      language: repo.language || '',\n      created_at: repo.created_at,\n      updated_at: repo.updated_at,\n      pushed_at: repo.pushed_at,\n      size: repo.size,\n      default_branch: repo.default_branch,\n      topics: repo.topics ? repo.topics.join(', ') : '',\n      license: repo.license ? repo.license.name : '',\n      is_private: repo.private,\n      is_archived: repo.archived,\n      has_issues: repo.has_issues,\n      has_wiki: repo.has_wiki,\n      has_pages: repo.has_pages,\n      // Fixed code metrics with proper field mapping\n      total_lines_of_code: metrics.total_lines || 0,\n      total_non_empty_lines: metrics.total_non_empty_lines || 0,\n      total_characters: metrics.total_characters || 0,\n      total_code_files: metrics.total_code_files_found || 0,\n      analyzed_files: metrics.files_successfully_analyzed || 0,\n      failed_files: metrics.files_failed_to_analyze || 0,\n      attempted_files: metrics.files_attempted_to_analyze || 0,\n      avg_lines_per_file: metrics.avg_lines_per_file || 0,\n      avg_chars_per_file: metrics.avg_chars_per_file || 0,\n      avg_non_empty_lines_per_file: metrics.avg_non_empty_lines_per_file || 0,\n      analysis_coverage_percent: metrics.analysis_coverage_percent || 0,\n      primary_language: metrics.primary_language || repo.language || '',\n      processed_at: new Date().toISOString()\n    }\n  });\n}\n\nreturn items;"
+      },
+      "id": "8a975a4f-8240-4af7-8a6c-46d7aed40534",
+      "name": "Format Repo Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge repository data with code metrics\nconst items = $input.all();\nconst repo = items[0].json.repo || items[0].json;\nconst metrics = items[0].json.code_metrics || {};\n\nreturn [{\n  json: {\n    repo,\n    code_metrics: metrics\n  }\n}];"
+      },
+      "id": "5a567699-0040-4480-bbe1-15808b18c6d0",
+      "name": "Merge Repo & Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allFiles = $input.all();\nconst repoData = $node['Filter Code Files'].json;\nconst enhancedRepo2 = $node['Code1'].json;\n\n// Get the enhanced repo data from Code1 via the chain\n// The repo data should have actual_issues_count and actual_prs_count\nconst enhancedRepo = repoData.repo;\n\nlet totalLines = 0;\nlet totalNonEmptyLines = 0;\nlet totalCharacters = 0;\nlet validProcessedFiles = 0;\nlet totalAttemptedFiles = 0;\n\nconsole.log(`Aggregating metrics from ${allFiles.length} file processing results`);\nconsole.log('Enhanced repo data includes actual_issues_count:', enhancedRepo.actual_issues_count);\nconsole.log('Enhanced repo data includes actual_prs_count:', enhancedRepo.actual_prs_count);\n\n// Sum up all metrics from all files processed in this execution\nfor (const item of allFiles) {\n  totalAttemptedFiles++;\n  \n  if (item.json && typeof item.json.lines === 'number') {\n    // Only count files that were successfully processed\n    if (item.json.processing_success && item.json.is_valid_code_file) {\n      totalLines += item.json.lines;\n      totalNonEmptyLines += item.json.non_empty_lines || 0;\n      totalCharacters += item.json.characters || 0;\n      validProcessedFiles++;\n      \n      console.log(`Valid file: ${item.json.file_path} - Lines: ${item.json.lines}, Chars: ${item.json.characters}`);\n    } else {\n      console.log(`Skipped invalid file: ${item.json.file_path || 'unknown'}`);\n    }\n  }\n}\n\n// Create comprehensive summary using the enhanced repo data\nconst summary = {\n  repo: enhancedRepo, // This should now include actual_issues_count and actual_prs_count\n  code_metrics: {\n    actual_issues_count:enhancedRepo2.actual_issues_count,\n    actual_prs_count:enhancedRepo2.actual_prs_count,\n    total_lines: totalLines,\n    total_non_empty_lines: totalNonEmptyLines,\n    total_characters: totalCharacters,\n    total_code_files_found: repoData.total_code_files || 0,\n    files_attempted_to_analyze: totalAttemptedFiles,\n    files_successfully_analyzed: validProcessedFiles,\n    files_failed_to_analyze: totalAttemptedFiles - validProcessedFiles,\n    primary_language: repoData.primary_language || '',\n    avg_lines_per_file: validProcessedFiles > 0 ? Math.round(totalLines / validProcessedFiles) : 0,\n    avg_chars_per_file: validProcessedFiles > 0 ? Math.round(totalCharacters / validProcessedFiles) : 0,\n    avg_non_empty_lines_per_file: validProcessedFiles > 0 ? Math.round(totalNonEmptyLines / validProcessedFiles) : 0,\n    analysis_coverage_percent: repoData.total_code_files > 0 ? \n      Math.round((validProcessedFiles / repoData.total_code_files) * 100) : 0\n  }\n};\n\nconsole.log(`=== AGGREGATION SUMMARY ===`);\nconsole.log(`Total code files found: ${summary.code_metrics.total_code_files_found}`);\nconsole.log(`Files attempted to analyze: ${summary.code_metrics.files_attempted_to_analyze}`);\nconsole.log(`Files successfully analyzed: ${summary.code_metrics.files_successfully_analyzed}`);\nconsole.log(`Total lines of code: ${summary.code_metrics.total_lines}`);\nconsole.log(`Total non-empty lines: ${summary.code_metrics.total_non_empty_lines}`);\nconsole.log(`Total characters: ${summary.code_metrics.total_characters}`);\nconsole.log(`Analysis coverage: ${summary.code_metrics.analysis_coverage_percent}%`);\nconsole.log(`Actual issues count: ${summary.repo.actual_issues_count}`);\nconsole.log(`Actual PRs count: ${summary.repo.actual_prs_count}`);\n\nreturn [{ json: summary }];"
+      },
+      "id": "bd0cc106-3630-4cd1-a659-dda71ca0e78d",
+      "name": "Aggregate Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fileData = $input.all();\nconst results = [];\n\nconsole.log(`Processing ${fileData.length} files in this batch`);\n\nfor (let i = 0; i < fileData.length; i++) {\n  const item = fileData[i];\n  let content = '';\n  let lines = 0;\n  let characters = 0;\n  let nonEmptyLines = 0;\n  let isValidFile = false;\n  \n  try {\n    // Extract content from various possible response formats\n    if (item.binary && item.binary.data && item.binary.data.data) {\n      // Handle binary response (base64 encoded)\n      content = Buffer.from(item.binary.data.data, 'base64').toString('utf8');\n      isValidFile = true;\n    } else if (typeof item.json === 'string') {\n      // Direct string content\n      content = item.json;\n      isValidFile = true;\n    } else if (item.json && typeof item.json.data === 'string') {\n      // Content in data property\n      content = item.json.data;\n      isValidFile = true;\n    } else if (item.json && typeof item.json.content === 'string') {\n      // Content in content property\n      content = item.json.content;\n      isValidFile = true;\n    } else if (item.data && typeof item.data === 'string') {\n      // Content directly in data\n      content = item.data;\n      isValidFile = true;\n    }\n    \n    if (content && typeof content === 'string' && isValidFile) {\n      // Count total characters\n      characters = content.length;\n      \n      // Split into lines (handle different line endings: \\n, \\r\\n, \\r)\n      const lineArray = content.split(/\\r\\n|\\r|\\n/);\n      lines = lineArray.length;\n      \n      // Handle edge case: if file doesn't end with newline, but has content\n      if (content.length > 0 && !content.match(/[\\r\\n]$/)) {\n        // File has content but no trailing newline - lines count is correct\n      } else if (content.length > 0 && content.match(/[\\r\\n]$/)) {\n        // File ends with newline - last \"line\" is empty, so subtract 1\n        lines = Math.max(1, lines - 1);\n      }\n      \n      // Count non-empty lines (excluding whitespace-only lines)\n      nonEmptyLines = lineArray.filter(line => line.trim().length > 0).length;\n      \n      console.log(`File ${i} (${item.json?.path || 'unknown'}): ${lines} lines, ${nonEmptyLines} non-empty, ${characters} chars`);\n    } else {\n      console.log(`File ${i}: No valid content found or failed to fetch`);\n      isValidFile = false;\n    }\n  } catch (error) {\n    console.error(`Error processing file ${i}:`, error.message);\n    isValidFile = false;\n  }\n  \n  // Create result with metrics\n  results.push({\n    json: {\n      lines: lines,\n      non_empty_lines: nonEmptyLines,\n      characters: characters,\n      file_index: i,\n      file_path: item.json?.path || `file_${i}`,\n      file_size: item.json?.size || 0,\n      content_length: content.length,\n      processing_success: isValidFile && (lines > 0 || characters > 0),\n      is_valid_code_file: isValidFile\n    }\n  });\n}\n\nconsole.log(`Batch complete: ${results.length} files processed`);\nreturn results;"
+      },
+      "id": "b3d24014-3ada-4ab7-8f44-4a6cfb4cfb13",
+      "name": "Count Lines & Characters",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.content_url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "b0caccf3-c735-4bcc-a648-2ceee6255cea",
+      "name": "Fetch File Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        260,
+        -60
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "fEfYtoEZLxhKVsnB",
+          "name": "GitHub account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "905ffcef-e64e-4c89-91ca-024552ce2774",
+      "name": "Batch Files",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        60,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "files_to_process",
+        "options": {}
+      },
+      "id": "110fb85f-c4ef-4955-8b61-863408e6e1df",
+      "name": "Split Files",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        -160,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const repo = $node['Get Repo Details'].json;\nconst tree = $json;\nconst maxFileSizeKB = $node.Configuration.json.max_file_size_kb || 500;\nconst maxFileSize = maxFileSizeKB * 1024;\n\n// Paths to skip (based on your reference)\nconst pathsToSkip = [\n  'node_modules', '.git', 'dist', 'build', 'vendor',\n  '.github', 'examples', 'docs', 'test', 'tests'\n];\n\n// Common code file extensions\nconst codeExtensions = {\n  javascript: ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'],\n  python: ['.py', '.pyw', '.pyx', '.pxd', '.pxi'],\n  java: ['.java'],\n  c: ['.c', '.h'],\n  cpp: ['.cpp', '.cc', '.cxx', '.hpp', '.h', '.hxx'],\n  csharp: ['.cs'],\n  go: ['.go'],\n  rust: ['.rs'],\n  php: ['.php', '.phtml', '.php3', '.php4', '.php5', '.php7', '.phps'],\n  ruby: ['.rb', '.rake', '.gemspec'],\n  swift: ['.swift'],\n  kotlin: ['.kt', '.kts'],\n  scala: ['.scala', '.sc'],\n  // Generic extensions\n  generic: ['.json', '.xml', '.yaml', '.yml', '.md', '.txt', '.sh', '.bat', '.sql']\n};\n\n// Helper function to check if file should be skipped\nfunction shouldSkipFile(path) {\n  return pathsToSkip.some(skip => path.includes(skip));\n}\n\n// Helper function to check if file is a code file\nfunction isCodeFile(fileName) {\n  const primaryLang = (repo.language || '').toLowerCase();\n  const langExtensions = codeExtensions[primaryLang] || [];\n  const allExtensions = [...new Set([...langExtensions, ...codeExtensions.generic])];\n  \n  const lowerFileName = fileName.toLowerCase();\n  return allExtensions.some(ext => lowerFileName.endsWith(ext));\n}\n\n// Filter and prepare code files with content URLs\nconst codeFiles = tree.tree.filter(item => {\n  if (item.type !== 'blob') return false;\n  if (item.size > maxFileSize) return false;\n  if (shouldSkipFile(item.path)) return false;\n  return isCodeFile(item.path);\n});\n\n// Add content URLs to each file\nconst filesWithUrls = codeFiles.map(file => ({\n  ...file,\n  content_url: `https://raw.githubusercontent.com/${repo.full_name}/${repo.default_branch}/${file.path}`,\n  raw_api_url: `https://api.github.com/repos/${repo.full_name}/contents/${file.path}`\n}));\n\n// Limit files to process\nconst maxFilesToProcess = 100; // Adjust as needed\nconst filesToProcess = filesWithUrls.slice(0, maxFilesToProcess);\n\nconsole.log(`Total code files found: ${codeFiles.length}`);\nconsole.log(`Files to process: ${filesToProcess.length}`);\nconsole.log(`Skipping paths containing: ${pathsToSkip.join(', ')}`);\n\nreturn [{\n  json: {\n    repo,\n    files_to_process: filesToProcess,\n    total_code_files: codeFiles.length,\n    processed_files_count: filesToProcess.length,\n    primary_language: repo.language || '',\n    skipped_patterns: pathsToSkip\n  }\n}];"
+      },
+      "id": "63433eb8-c475-44fe-8bd2-724146666ed8",
+      "name": "Filter Code Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{ $json.full_name }}/git/trees/{{ $json.default_branch }}?recursive=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "213e2f9f-0374-45b0-8fee-fdb43cf92754",
+      "name": "Get Repository Tree",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -560,
+        -60
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "fEfYtoEZLxhKVsnB",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $node.Configuration.json.include_code_metrics }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "5ad87395-b679-4481-a873-7a150a1b3fa5",
+      "name": "Calculate Metrics?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a799fe33-8c59-4cbd-b4f5-05ec5adc232a",
+      "name": "Get Repo Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -960,
+        40
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "fEfYtoEZLxhKVsnB",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "id": "67cc9011-8746-44c6-90b1-254c42670632",
+      "name": "Split Repos",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        -1160,
+        40
+      ],
+      "notesInFlow": true,
+      "notes": "Splits the 'items' array from GitHub API response into individual repository items"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/search/repositories?q=language:{{ $json.programming_language }}&sort={{ $json.sort_by }}&order=desc&per_page={{ $json.results_per_page }}&page={{ $json.current_page }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "e8b3f896-270e-4220-ad42-8fcec024d1e0",
+      "name": "Search GitHub Repos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1340,
+        40
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "fEfYtoEZLxhKVsnB",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "programming_language",
+              "stringValue": "javascript"
+            },
+            {
+              "name": "sort_by",
+              "stringValue": "stars"
+            },
+            {
+              "name": "spreadsheet_id",
+              "stringValue": "YOUR_GOOGLE_SHEET_ID"
+            },
+            {
+              "name": "sheet_name",
+              "stringValue": "Sheet8"
+            },
+            {
+              "name": "results_per_page",
+              "type": "numberValue",
+              "numberValue": "1"
+            },
+            {
+              "name": "max_pages",
+              "type": "numberValue",
+              "numberValue": "10"
+            },
+            {
+              "name": "current_page",
+              "type": "numberValue",
+              "numberValue": "1"
+            },
+            {
+              "name": "include_code_metrics",
+              "type": "booleanValue"
+            },
+            {
+              "name": "max_file_size_kb",
+              "type": "numberValue",
+              "numberValue": "500"
+            }
+          ]
+        },
+        "options": {
+          "dotNotation": false
+        }
+      },
+      "id": "84dc9cf5-4b7d-4b45-a593-392658f34ecd",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        -1820,
+        40
+      ],
+      "notesInFlow": true,
+      "notes": "Configure these values:\n- programming_language: javascript, python, java, etc.\n- sort_by: stars, forks, or updated\n- spreadsheet_id: Your Google Sheet ID from the URL\n- sheet_name: Target sheet name\n- results_per_page: Max 100\n- max_pages: How many pages to process\n- current_page: Starting page (keep as 1)\n- include_code_metrics: Whether to calculate lines/chars (slower)\n- max_file_size_kb: Skip files larger than this (default 500KB)"
+    },
+    {
+      "parameters": {},
+      "id": "71efa115-cdc1-4334-87d6-062677fae94e",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [
+        -2040,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/search/issues?q=repo:{{ $json.full_name }}+type:issue+state:open",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1020,
+        -240
+      ],
+      "id": "794e4a0e-5a0e-42ae-9abb-06cc363510ab",
+      "name": "Get Exact Issues Count",
+      "credentials": {
+        "githubApi": {
+          "id": "fEfYtoEZLxhKVsnB",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node to parse exact counts from GitHub Search API\nconst repo = $node['Get Repo Details'].json;\nconst issuesSearchResponse = $node['Get Exact Issues Count'].json;\nconst prsSearchResponse = $node['Get Exact PRs Count'].json;\n\n// Extract exact counts from search API responses\nconst actualIssuesCount = repo.has_issues ? (issuesSearchResponse.total_count || 0) : 0;\nconst actualPRsCount = prsSearchResponse.total_count || 0;\n\nconsole.log(`Repository: ${repo.full_name}`);\nconsole.log(`Has issues enabled: ${repo.has_issues}`);\nconsole.log(`Original combined open_issues_count: ${repo.open_issues_count}`);\nconsole.log(`Exact issues count: ${actualIssuesCount}`);\nconsole.log(`Exact PRs count: ${actualPRsCount}`);\nconsole.log(`Total (should match original): ${actualIssuesCount + actualPRsCount}`);\n\nreturn [{\n  json: {\n    ...repo,\n    actual_issues_count: actualIssuesCount,\n    actual_prs_count: actualPRsCount,\n    original_combined_count: repo.open_issues_count\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        -220
+      ],
+      "id": "c95fe1b2-22ab-4991-b9bb-22b1c8a3d47a",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/search/issues?q=repo:{{ $json.full_name }}+type:pr+state:open",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1000,
+        -100
+      ],
+      "id": "4af0afe9-56e0-425f-bec7-3d13de28d17b",
+      "name": "Get Exact PRs Count",
+      "credentials": {
+        "githubApi": {
+          "id": "fEfYtoEZLxhKVsnB",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -760,
+        -220
+      ],
+      "id": "796bd1a1-b373-4240-9bde-fb9b8ac074d5",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Search GitHub Repos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait (Rate Limit)": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue?": {
+      "main": [
+        [
+          {
+            "node": "Wait (Rate Limit)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processing Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Pagination": {
+      "main": [
+        [
+          {
+            "node": "Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Check Pagination",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Repo Data": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Repo & Metrics": {
+      "main": [
+        [
+          {
+            "node": "Format Repo Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Metrics": {
+      "main": [
+        [
+          {
+            "node": "Merge Repo & Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Lines & Characters": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch File Content": {
+      "main": [
+        [
+          {
+            "node": "Count Lines & Characters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Files": {
+      "main": [
+        [
+          {
+            "node": "Fetch File Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Batch Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Files": {
+      "main": [
+        [
+          {
+            "node": "Batch Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Code Files": {
+      "main": [
+        [
+          {
+            "node": "Split Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Repository Tree": {
+      "main": [
+        [
+          {
+            "node": "Filter Code Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Metrics?": {
+      "main": [
+        [
+          {
+            "node": "Get Repository Tree",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Repo & Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Repo Details": {
+      "main": [
+        [
+          {
+            "node": "Get Exact Issues Count",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Exact PRs Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Repos": {
+      "main": [
+        [
+          {
+            "node": "Get Repo Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search GitHub Repos": {
+      "main": [
+        [
+          {
+            "node": "Split Repos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Exact Issues Count": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Calculate Metrics?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Exact PRs Count": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e0f022ef-7f41-49bb-9fc7-70c56726c149",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5577aee31ec0bbd7f24ea78b89133b689068025722ed082604adc7cc5a4e0c4d"
+  },
+  "id": "kbrgPuUPheYrQjXf",
+  "tags": []
+}
