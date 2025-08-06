@@ -1,6 +1,6 @@
-# GitHub Repository Metrics to Google Sheets
+# GitHub Repository Insights Automation
 
-This n8n workflow automatically collects comprehensive GitHub repository metrics and exports them to Google Sheets. It searches for repositories by programming language, gathers detailed statistics including code metrics, and organizes the data in a structured spreadsheet format.
+This n8n workflow automatically collects GitHub repository metrics and exports them to Google Sheets. It searches for repositories by programming language, gathers detailed statistics including code metrics, and organizes the data in a structured spreadsheet format.
 
 ## Features
 
